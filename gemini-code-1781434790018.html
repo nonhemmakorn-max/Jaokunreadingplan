@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>Pharmacist Smart Planner</title>
+    <style>
+        body { font-family: 'Kanit', sans-serif; background: #f4f7f6; padding: 20px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .task-box { text-align: center; margin: 20px 0; padding: 20px; background: #eef2f3; border-radius: 10px; }
+        .btn { width: 100%; padding: 15px; margin-top: 10px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; }
+        .btn:disabled { background: #bdc3c7 !important; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="countdown" style="text-align: right; font-weight: bold;"></div>
+    <div class="task-box">
+        <h2 id="dateLabel">วันนี้</h2>
+        <div id="taskList" style="font-size: 1.5em; font-weight: bold; color: #2c3e50;"></div>
+        <p id="debtMsg" style="color: #c0392b; font-weight: bold;"></p>
+    </div>
+    <button id="btnDone" class="btn" style="background:#27ae60" onclick="markDone()">✅ ทำเสร็จแล้ว</button>
+    <button id="btnSkip" class="btn" style="background:#e67e22" onclick="skipDay()">⏭ เลื่อนงาน</button>
+    <button class="btn" style="background:#3498db" onclick="toggleTable()">📋 ดูตารางทั้งหมด</button>
+    <div id="fullTable" style="display:none; margin-top:20px; font-size: 0.9em;"></div>
+</div>
+
+<script>
+    let schedule = JSON.parse(localStorage.getItem('myStudyPlan')) || [];
+    const examDate = new Date("2027-03-15");
+
+    function initSchedule() {
+        if (schedule.length > 0) return;
+        let d = new Date();
+        let i = 0;
+        while (d <= examDate) {
+            let isWeekend = (d.getDay() === 6 || d.getDay() === 0);
+            schedule.push({ 
+                date: d.toISOString().split('T')[0], 
+                subject: ["คณิต", "เคมี", "อังกฤษ", "TGAT", "ฟิสิกส์", "ชีวะ"][i % 6], 
+                hours: isWeekend ? 4 : 3, 
+                done: false,
+                skipped: false 
+            });
+            d.setDate(d.getDate() + 1);
+            i++;
+        }
+        localStorage.setItem('myStudyPlan', JSON.stringify(schedule));
+    }
+
+    function render() {
+        let todayStr = new Date().toISOString().split('T')[0];
+        let todayIdx = schedule.findIndex(s => s.date === todayStr);
+        let today = schedule[todayIdx];
+        
+        const timeDiff = examDate - new Date();
+        const daysLeft = Math.ceil(timeDiff / (1000*60*60*24));
+        
+        // ตรรกะ 3 เดือนสุดท้าย (90 วัน)
+        let displaySubject = (daysLeft <= 90) ? `ฝึกโจทย์จริง: ${today.subject}` : `${today.subject} (${today.hours} ชม.)`;
+
+        document.getElementById("dateLabel").innerText = new Date().toLocaleDateString('th-TH');
+        document.getElementById("taskList").innerText = displaySubject;
+        document.getElementById("countdown").innerText = `สอบใน: ${daysLeft} วัน`;
+
+        // จัดการสถานะปุ่ม
+        const btnDone = document.getElementById("btnDone");
+        const btnSkip = document.getElementById("btnSkip");
+        
+        if (today.done || today.skipped) {
+            btnDone.disabled = true;
+            btnSkip.disabled = true;
+            btnDone.innerText = today.done ? "✅ ทำเสร็จแล้ว" : "⏭ เลื่อนงานแล้ว";
+        }
+    }
+
+    function markDone() {
+        if (confirm("ยืนยันว่าทำภารกิจวันนี้เสร็จสิ้นแล้ว?")) {
+            let todayStr = new Date().toISOString().split('T')[0];
+            let idx = schedule.findIndex(s => s.date === todayStr);
+            schedule[idx].done = true;
+            localStorage.setItem('myStudyPlan', JSON.stringify(schedule));
+            render();
+        }
+    }
+
+    function skipDay() {
+        if (confirm("ยืนยันที่จะเลื่อนงานวันนี้ใช่ไหม?")) {
+            let todayStr = new Date().toISOString().split('T')[0];
+            let idx = schedule.findIndex(s => s.date === todayStr);
+            schedule[idx].skipped = true;
+            localStorage.setItem('myStudyPlan', JSON.stringify(schedule));
+            alert("เลื่อนงานแล้ว! ยอดชั่วโมงจะถูกไปสะสมที่วันหยุดถัดไปครับ");
+            render();
+        }
+    }
+
+    function toggleTable() {
+        let div = document.getElementById("fullTable");
+        div.style.display = div.style.display === "none" ? "block" : "none";
+        div.innerHTML = schedule.map(s => `<p>${s.date}: ${s.subject} ${s.done ? '✅' : (s.skipped ? '⏭' : '⏳')}</p>`).join("");
+    }
+
+    initSchedule();
+    render();
+</script>
+</body>
+</html>
